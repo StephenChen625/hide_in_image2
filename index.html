@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>隐写术工具 - 框选与像素矩阵</title>
+  <style>
+    /* 全局样式 */
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f0f2f5;
+      color: #333;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    h1 {
+      color: #444;
+      margin-top: 20px;
+      margin-bottom: 10px;
+    }
+
+    /* 容器布局 */
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 90%;
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: #fff;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      border-radius: 8px;
+    }
+
+    /* 使用说明样式 */
+    .instructions {
+      text-align: left;
+      margin-bottom: 20px;
+      padding: 15px;
+      background-color: #e9ecef;
+      border-radius: 5px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .instructions h4 {
+      text-align: center; /* 将 <h4> 元素居中 */
+    }
+
+    .instructions h2 {
+      margin-top: 10px;
+      margin-bottom: 10px;
+    }
+
+    .instructions ol {
+      padding-left: 20px;
+    }
+
+    .instructions li {
+      margin-bottom: 8px;
+    }
+
+    /* 文件输入和画布区域 */
+    .top-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+    }
+
+    @media (min-width: 768px) {
+      .top-section {
+        flex-direction: column;
+        align-items: center;
+      }
+    }
+
+    /* 文件输入样式 */
+    .file-input {
+      margin-bottom: 20px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .file-input input {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: border-color 0.3s;
+      width: 80%;
+      max-width: 300px;
+    }
+
+    .file-input input:hover {
+      border-color: #007bff;
+    }
+
+    /* 画布样式 */
+    .canvas-container {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+    }
+
+    canvas {
+      border: 2px solid #888;
+      border-radius: 8px;
+      cursor: crosshair;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      max-width: 100%;
+      height: auto;
+      touch-action: none; /* 防止触摸滚动 */
+    }
+
+    /* 控制按钮样式 */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin: 20px 0;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .controls button {
+      padding: 10px 20px;
+      font-size: 14px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s, transform 0.2s;
+      min-width: 140px;
+    }
+
+    .controls button:hover:not(:disabled) {
+      transform: translateY(-2px);
+    }
+
+    .controls button:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .controls button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    /* 各按钮颜色 */
+    #clearLsb {
+      background-color: #ff9800;
+      color: white;
+    }
+
+    #addOneBtn {
+      background-color: #4caf50;
+      color: white;
+    }
+
+    #highlightOddBtn {
+      background-color: #9c27b0;
+      color: white;
+    }
+
+    #saveChangesBtn {
+      background-color: #2196f3;
+      color: white;
+    }
+
+    #clearSelection {
+      background-color: #f44336;
+      color: white;
+    }
+
+    /* 像素矩阵样式 */
+    .matrix-section {
+      width: 100%;
+    }
+
+    .matrix-section h2 {
+      margin-bottom: 10px;
+    }
+
+    .matrix-container {
+      overflow-x: auto;
+      width: 100%;
+    }
+
+    .matrix {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, 80px);
+      gap: 2px;
+      margin: 0 auto;
+      user-select: none; /* 防止文本被选中 */
+    }
+
+    .matrix div {
+      padding: 10px;
+      background: #ffffff;
+      border: 1px solid #ddd;
+      font-size: 12px;
+      text-align: center;
+      cursor: pointer;
+      box-sizing: border-box;
+      border-radius: 4px;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    .matrix div.selected {
+      background-color: #007bff;
+      color: #fff;
+    }
+
+    .matrix div.odd {
+      background-color: #e91e63;
+      color: #fff;
+    }
+
+    .matrix div.selected.odd {
+      background-color: #c2185b;
+    }
+
+    /* 响应式设计 */
+    @media (max-width: 600px) {
+      .controls button {
+        width: 100%;
+        margin: 5px 0;
+      }
+
+      .matrix div {
+        padding: 8px;
+        font-size: 10px;
+      }
+
+      .top-section {
+        flex-direction: column;
+      }
+
+      .file-input {
+        width: 100%;
+      }
+
+      .canvas-container {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>图里藏着什么秘密？</h1>
+  <div class="container">
+    <!-- 使用说明 -->
+    <div class="instructions">
+      <h4>提示：图片中框选位置后，会出现像素值矩阵，这些数字有什么规律？</h4>
+      <!-- <h2>使用说明</h2>
+      <ol>
+        <li>点击“选择文件”按钮，加载你想要进行隐写术操作的图片。默认会加载本地的 <code>tree.png</code>。</li>
+        <li>加载图片后，可以点击“末位清零”按钮，将图片所有像素的 RGB 通道的末位设置为 0。</li>
+        <li>在画布上按下鼠标左键（或触控设备上触摸并按下），拖动以选择一个矩形区域，最大选择范围为 50x50 像素。</li>
+        <li>松开鼠标后，选定区域的像素矩阵会显示在下方。</li>
+        <li>在像素矩阵中，点击或拖动以选择一个或多个像素格。选中的像素格会高亮显示。</li>
+        <li>点击“选中像素加1”按钮，将所有选中像素的 RGB 值各自加1。</li>
+        <li>点击“奇数高亮”按钮，将矩阵中所有 RGB 值均为奇数的像素格高亮显示。</li>
+        <li>完成所有修改后，点击“保存修改”按钮，将修改后的图片下载到本地。</li>
+        <li>点击“清除选择”按钮，取消当前的区域选择和所有像素选择。</li>
+      </ol> -->
+    </div>
+
+    <!-- 文件输入和画布区域 -->
+    <div class="top-section">
+      <div class="file-input">
+        <input type="file" id="imageInput" accept="image/*">
+      </div>
+      <div class="canvas-container">
+        <canvas id="canvas" width="600" height="400"></canvas>
+      </div>
+    </div>
+
+    <!-- 控制按钮 -->
+    <div class="controls">
+      <button id="clearLsb" disabled>末位清零</button>
+      <button id="addOneBtn" disabled>选中像素加1</button>
+      <button id="highlightOddBtn" disabled>奇数高亮</button>
+      <button id="saveChangesBtn" disabled>保存修改</button>
+      <button id="clearSelection" disabled>清除选择</button>
+    </div>
+
+    <!-- 像素矩阵 -->
+    <div class="matrix-section">
+      <h2>框选区域的像素矩阵</h2>
+      <div class="matrix-container">
+        <div id="matrix" class="matrix"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const imageInput = document.getElementById("imageInput");
+    const matrixContainer = document.getElementById("matrix");
+    const clearLsbBtn = document.getElementById("clearLsb");
+    const addOneBtn = document.getElementById("addOneBtn");
+    const saveChangesBtn = document.getElementById("saveChangesBtn");
+    const clearSelectionBtn = document.getElementById("clearSelection");
+    const highlightOddBtn = document.getElementById("highlightOddBtn");
+
+    let imageData = null; // 原始图片数据
+    let selection = null; // 当前选中区域
+    let isSelecting = false; // 是否在框选中
+    let startX, startY;
+    let selectedCells = new Set(); // 记录被选中的像素格索引
+    let isDraggingMatrix = false; // 是否在拖动像素矩阵选择
+
+    const MAX_SELECTION_SIZE = 50; // 最大选择尺寸
+
+    // 加载图片函数
+    function loadImage(src) {
+      const img = new Image();
+      // 移除 crossOrigin，确保本地图片可以正确加载
+      // img.crossOrigin = ""; // 移除这一行
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        imageData = ctx.getImageData(0, 0, img.width, img.height);
+        clearLsbBtn.disabled = false;
+        saveChangesBtn.disabled = true;
+        clearSelectionBtn.disabled = true;
+        addOneBtn.disabled = true;
+        highlightOddBtn.disabled = true;
+        matrixContainer.innerHTML = "";
+        selectedCells.clear();
+      };
+      img.onerror = () => {
+        alert("无法加载默认图片，请确保 'tree.png' 存在于相同目录下。");
+      };
+      img.src = src;
+    }
+
+    // 默认加载本地文件 tree.png
+    window.addEventListener("load", () => {
+      loadImage('tree.png');
+    });
+
+    // 手动加载图片
+    imageInput.addEventListener("change", (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        loadImage(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // 末位清零
+    clearLsbBtn.addEventListener("click", () => {
+    if (!imageData) return;
+    const data = imageData.data;
+    
+    // 对每个像素的 RGB 通道进行末位清零
+    for (let i = 0; i < data.length; i += 4) {
+        data[i] = data[i] & 0xFE;         // 红色通道
+        data[i + 1] = data[i + 1] & 0xFE; // 绿色通道
+        data[i + 2] = data[i + 2] & 0xFE; // 蓝色通道
+    }
+    
+    // 刷新图像
+    ctx.putImageData(imageData, 0, 0);
+    
+    alert("末位清零完成！可以手动选择像素并嵌入信息。");
+
+    // 刷新选中区域的像素矩阵
+    if (selection) {
+        showMatrix(); // 重新显示选中区域的像素矩阵
+    }
+
+    saveChangesBtn.disabled = false;
+    });
+
+    // 框选功能（支持触控板和触屏）
+    canvas.addEventListener("pointerdown", (event) => {
+      event.preventDefault(); // 防止默认行为
+      if (!imageData) return;
+      isSelecting = true;
+      const rect = canvas.getBoundingClientRect();
+      startX = event.clientX - rect.left;
+      startY = event.clientY - rect.top;
+      selection = null;
+      selectedCells.clear();
+      matrixContainer.innerHTML = "";
+      addOneBtn.disabled = true;
+      highlightOddBtn.disabled = true;
+      clearSelectionBtn.disabled = true;
+    });
+
+    canvas.addEventListener("pointermove", (event) => {
+      event.preventDefault(); // 防止默认行为
+      if (!isSelecting || !imageData) return;
+      const rect = canvas.getBoundingClientRect();
+      let endX = event.clientX - rect.left;
+      let endY = event.clientY - rect.top;
+
+      // 计算选择框的宽度和高度
+      let width = Math.abs(endX - startX);
+      let height = Math.abs(endY - startY);
+
+      // 限制最大选择尺寸
+      if (width > MAX_SELECTION_SIZE) {
+        width = MAX_SELECTION_SIZE;
+        endX = startX + (endX > startX ? MAX_SELECTION_SIZE : -MAX_SELECTION_SIZE);
+      }
+      if (height > MAX_SELECTION_SIZE) {
+        height = MAX_SELECTION_SIZE;
+        endY = startY + (endY > startY ? MAX_SELECTION_SIZE : -MAX_SELECTION_SIZE);
+      }
+
+      const x1 = Math.min(startX, endX);
+      const y1 = Math.min(startY, endY);
+      const x2 = Math.max(startX, endX);
+      const y2 = Math.max(startY, endY);
+
+      // 确保选择区域不超出图片边界
+      const maxX = imageData.width;
+      const maxY = imageData.height;
+      selection = {
+        x1: Math.floor(Math.min(x1, maxX)),
+        y1: Math.floor(Math.min(y1, maxY)),
+        x2: Math.floor(Math.min(x2, maxX)),
+        y2: Math.floor(Math.min(y2, maxY))
+      };
+      drawSelection();
+    });
+
+    canvas.addEventListener("pointerup", (event) => {
+      if (!isSelecting || !imageData) return;
+      isSelecting = false;
+      showMatrix();
+      clearSelectionBtn.disabled = false;
+      addOneBtn.disabled = false;
+      highlightOddBtn.disabled = false;
+    });
+
+    function drawSelection() {
+      ctx.putImageData(imageData, 0, 0);
+      if (selection) {
+        ctx.strokeStyle = "red";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(
+          selection.x1,
+          selection.y1,
+          selection.x2 - selection.x1,
+          selection.y2 - selection.y1
+        );
+
+        // 添加半透明填充（可选）
+        ctx.fillStyle = "rgba(255, 0, 0, 0.1)";
+        ctx.fillRect(
+          selection.x1,
+          selection.y1,
+          selection.x2 - selection.x1,
+          selection.y2 - selection.y1
+        );
+      }
+    }
+
+    // 显示像素矩阵
+    function showMatrix() {
+      if (!selection || !imageData) return;
+
+      const { x1, y1, x2, y2 } = selection;
+      const width = imageData.width;
+      const data = imageData.data;
+
+      matrixContainer.innerHTML = "";
+      const columns = x2 - x1;
+      matrixContainer.style.gridTemplateColumns = `repeat(${columns}, 80px)`;
+
+      for (let y = y1; y < y2; y++) {
+        for (let x = x1; x < x2; x++) {
+          const index = (y * width + x) * 4;
+          const r = data[index];
+          const g = data[index + 1];
+          const b = data[index + 2];
+
+          const div = document.createElement("div");
+          div.textContent = `R:${r} G:${g} B:${b}`;
+          div.dataset.index = index;
+          div.addEventListener("pointerdown", (e) => {
+            isDraggingMatrix = true;
+            toggleSelect(div, index);
+            e.preventDefault(); // 防止拖动时触发其他事件
+          });
+          div.addEventListener("pointerover", (e) => {
+            if (isDraggingMatrix) {
+              toggleSelect(div, index);
+            }
+          });
+          div.addEventListener("pointerup", () => {
+            isDraggingMatrix = false;
+          });
+          matrixContainer.appendChild(div);
+        }
+      }
+    }
+
+    // 切换选择状态
+    function toggleSelect(div, index) {
+      if (selectedCells.has(index)) {
+        selectedCells.delete(index);
+        div.classList.remove("selected");
+      } else {
+        selectedCells.add(index);
+        div.classList.add("selected");
+      }
+    }
+
+    // 清除选择
+    clearSelectionBtn.addEventListener("click", () => {
+      selectedCells.clear();
+      selection = null;
+      drawSelection();
+      matrixContainer.innerHTML = ""; // 清空像素矩阵
+      clearSelectionBtn.disabled = true;
+      addOneBtn.disabled = true;
+      highlightOddBtn.disabled = true;
+    });
+
+    // 添加事件监听器以停止拖动选择
+    document.addEventListener("pointerup", () => {
+      if (isDraggingMatrix) {
+        isDraggingMatrix = false;
+      }
+    });
+
+    // 选中像素加1
+    addOneBtn.addEventListener("click", () => {
+      if (!imageData || selectedCells.size === 0) return;
+      const data = imageData.data;
+      selectedCells.forEach(index => {
+        // 对R, G, B通道分别加1，并确保不超过255
+        data[index] = (data[index] + 1) % 256;
+        data[index + 1] = (data[index + 1] + 1) % 256;
+        data[index + 2] = (data[index + 2] + 1) % 256;
+      });
+      ctx.putImageData(imageData, 0, 0);
+      alert("选中的像素已加1！");
+      showMatrix(); // 更新像素矩阵显示
+      saveChangesBtn.disabled = false;
+    });
+
+    // 奇数高亮功能
+    highlightOddBtn.addEventListener("click", () => {
+      if (!imageData || !selection) return;
+      const { x1, y1, x2, y2 } = selection;
+      const width = imageData.width;
+      const data = imageData.data;
+
+      // 清除之前的奇数高亮
+      const divs = matrixContainer.querySelectorAll('div');
+      divs.forEach(div => {
+        div.classList.remove('odd');
+      });
+
+      for (let y = y1; y < y2; y++) {
+        for (let x = x1; x < x2; x++) {
+          const index = (y * width + x) * 4;
+          const r = data[index];
+          const g = data[index + 1];
+          const b = data[index + 2];
+          if (r % 2 === 1 && g % 2 === 1 && b % 2 === 1) {
+            const div = matrixContainer.querySelector(`div[data-index='${index}']`);
+            if (div) {
+              div.classList.add('odd');
+            }
+          }
+        }
+      }
+    });
+
+    // 保存修改后的图片
+    saveChangesBtn.addEventListener("click", () => {
+      if (!imageData) return;
+      ctx.putImageData(imageData, 0, 0);
+
+      const link = document.createElement('a');
+      link.download = 'modified_image.png';
+      link.href = canvas.toDataURL();
+      link.click();
+    });
+  </script>
+</body>
+</html>
